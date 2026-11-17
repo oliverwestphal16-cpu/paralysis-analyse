@@ -15,6 +15,7 @@ Die App ist eine offline-fähige Web-App (PWA) für **ein Gerät in der Tischmit
 - **Phasenfilter** Insgesamt / Early (erste 25 % der Züge) / Mid (50 %) / Late (letzte 25 %); Aufbau & Regeln ein- und ausblendbar
 - **Vorausdenk-Faktor** (0–1, nachträglich einstellbar): Jedem Spieler wird zusätzlich dieser Anteil der Dauer des direkt vorangehenden Zugs eines anderen Spielers angerechnet
 - **Weitere Statistiken**: Spinnendiagramm (Tempo, Durchschnittszug, Konstanz, kein Grübel-Ausreißer, Punkte, Effizienz), Kennzahlentabelle, Ø Zugdauer je Phase, Phasentabelle, Boxplot, Anteil an der Spielzeit, das „Rennen“, die 5 längsten Züge, Pausen
+- **Partie bewerten** (nach der Übersicht): gemeinsam oder reihum jeder einzeln, 5 Sterne in halben Schritten je Kriterium; Gesamtnote als gewichteter Schnitt (Standard: Spaß 20 %, Direkt nochmal spielen 20 %, Thema 20 %, Spannungsbogen 15 %, Spielflow 15 %, Design 10 %), dazu die Einordnung Glück ↔ Taktik ↔ Strategie und Brainy. Kriterien und Gewichte sind in den Einstellungen änderbar.
 - **Partieübergreifend**: Historie, ewige Rangliste (Tempo-Index), Statistik je Spieler, Ø Aufbau-/Regel-/Spieldauer je Spiel, Filter nach Spiel, JSON-Export/-Import als Datensicherung (ohne Fotos)
 
 ## Benutzung

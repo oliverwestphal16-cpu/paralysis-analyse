@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../data/db';
+import { db, useCriteria } from '../data/db';
 import { crossStats } from '../domain/crossStats';
+import { favoriteGames, fmtScore } from '../domain/rating';
+import { StarDisplay } from '../ui/Stars';
 import type { Profile } from '../domain/types';
 import { fmtClock, fmtDate, fmtNum } from '../lib/format';
 import { Avatar } from '../ui/avatars';
@@ -23,6 +25,8 @@ export function Players() {
   const current = profiles.find((p) => p.id === selected) ?? profiles[0];
   const cs = current ? crossStats(games, current.id, title || undefined) : undefined;
   const recent = cs?.entries.slice(-10) ?? [];
+  const criteria = useCriteria();
+  const favorites = current ? favoriteGames(games, criteria, current.id) : [];
   const t = chartTheme();
 
   return (
@@ -76,6 +80,23 @@ export function Players() {
                 </tbody>
               </table>
               <p className="muted">100 % = durchschnittliche Zugdauer am Tisch der jeweiligen Partie; darunter ist schneller.</p>
+              <h3>Lieblingsspiele</h3>
+              {favorites.length === 0 ? (
+                <p className="muted">Noch keine eigenen Bewertungen – dafür eine Partie mit „Jeder einzeln“ bewerten.</p>
+              ) : (
+                <ol style={{ paddingLeft: 20, marginTop: 0 }}>
+                  {favorites.map((f) => (
+                    <li key={f.title} style={{ marginBottom: 4 }}>
+                      <span className="row" style={{ gap: 8 }}>
+                        <span className="spacer">{f.title}</span>
+                        <StarDisplay value={f.score} size={14} />
+                        <strong>{fmtScore(f.score)}</strong>
+                        <span className="muted" style={{ fontSize: 13 }}>({f.games}×)</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               <h3>Letzte {recent.length} Partien</h3>
               <EChart
                 height={260}

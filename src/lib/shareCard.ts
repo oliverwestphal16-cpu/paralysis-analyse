@@ -57,6 +57,8 @@ export interface ShareCardInput {
   rank: PlayerStats[];
   awards: Award[];
   durationLine: string;
+  /** Overall rating 1..10, shown as stars under the title. */
+  rating?: number;
 }
 
 function fmtAward(a: Award): string {
@@ -66,7 +68,7 @@ function fmtAward(a: Award): string {
 }
 
 /** Renders the 1080×1350 summary card as a PNG blob. */
-export async function renderShareCard({ game, rank, awards, durationLine }: ShareCardInput): Promise<Blob> {
+export async function renderShareCard({ game, rank, awards, durationLine, rating }: ShareCardInput): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -88,13 +90,40 @@ export async function renderShareCard({ game, rank, awards, durationLine }: Shar
   ctx.fillText(fmtDate(game.createdAt), W / 2, 160);
   ctx.fillText(fitText(ctx, durationLine, W - 120), W / 2, 205);
 
+  if (rating !== undefined) {
+    // Five stars, filled in half steps (1..10 → 0.5..5 stars), plus the number.
+    const size = 40;
+    const x0 = W / 2 - (5 * size + 4 * 8 + 90) / 2;
+    ctx.font = font(size);
+    ctx.textAlign = 'left';
+    for (let i = 0; i < 5; i++) {
+      const x = x0 + i * (size + 8);
+      const fill = Math.min(1, Math.max(0, rating / 2 - i));
+      ctx.fillStyle = '#4a3d32';
+      ctx.fillText('★', x, 262);
+      if (fill > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, 262 - size, size * fill, size + 10);
+        ctx.clip();
+        ctx.fillStyle = C.gold;
+        ctx.fillText('★', x, 262);
+        ctx.restore();
+      }
+    }
+    ctx.fillStyle = C.gold;
+    ctx.font = font(36, 800);
+    ctx.fillText(rating.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }), x0 + 5 * (size + 8) + 6, 260);
+    ctx.textAlign = 'center';
+  }
+
   // Podium (2 – 1 – 3)
   const slots = [
     { s: rank[1], place: 2, h: 190, color: C.silver },
     { s: rank[0], place: 1, h: 260, color: C.gold },
     { s: rank[2], place: 3, h: 140, color: C.bronze },
   ];
-  const baseY = 770;
+  const baseY = 800;
   const bw = 280;
   slots.forEach(({ s, place, h, color }, i) => {
     if (!s) return;
@@ -119,7 +148,7 @@ export async function renderShareCard({ game, rank, awards, durationLine }: Shar
 
   // Titles and scores
   ctx.textAlign = 'left';
-  let y = 845;
+  let y = 870;
   ctx.fillStyle = C.gold;
   ctx.font = font(36, 800);
   ctx.fillText('Titel', 80, y);
@@ -136,7 +165,7 @@ export async function renderShareCard({ game, rank, awards, durationLine }: Shar
     y += 50;
   }
   if (game.scores) {
-    let sy = 897;
+    let sy = 922;
     [...game.players].sort((a, b) => (game.scores![b.id] ?? 0) - (game.scores![a.id] ?? 0)).forEach((p) => {
       ctx.fillStyle = p.color;
       ctx.beginPath();

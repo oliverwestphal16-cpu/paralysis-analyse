@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../data/db';
+import { db, useCriteria } from '../data/db';
+import { summarize } from '../domain/rating';
 import { awards as computeAwards, type Award } from '../domain/awards';
 import {
   PAUSE_LABELS, PHASES, efficiency, gameSpan, mean, pauseSummary, phaseOf, phaseWindow, playerStats, prepTimes,
@@ -14,6 +15,7 @@ import { renderShareCard } from '../lib/shareCard';
 import { Avatar } from '../ui/avatars';
 import { EChart } from '../ui/EChart';
 import { GamePhotos } from '../ui/GamePhotos';
+import { RatingCard } from '../ui/RatingCard';
 import {
   PREP_COLORS, barsOption, boxplotOption, lineOption, phaseBarsOption, pieExtras, pieOption, raceOption, radarOption,
   scatterOption, timelineOption,
@@ -42,6 +44,7 @@ type PhaseFilter = 'all' | Phase;
 
 export function Result({ id }: { id: string }) {
   const game = useLiveQuery(() => db.games.get(id), [id], null);
+  const criteria = useCriteria();
   const [factor, setFactorState] = useState(readFactor);
   const [showPrep, setShowPrepState] = useState(readShowPrep);
   const [tab, setTab] = useState<'overview' | 'more'>('overview');
@@ -95,7 +98,7 @@ export function Result({ id }: { id: string }) {
     setSharing('Erzeuge Bild …');
     try {
       const whole = ranking(playerStats(game, now, factor));
-      const blob = await renderShareCard({ game, rank: whole, awards, durationLine });
+      const blob = await renderShareCard({ game, rank: whole, awards, durationLine, rating: summarize(game.rating, criteria)?.overall });
       const r = await shareOrDownload(blob, `paralysis-analyse-${new Date(game.createdAt).toISOString().slice(0, 10)}.png`, game.title);
       setSharing(r === 'downloaded' ? 'Bild heruntergeladen.' : undefined);
     } catch (e) {
@@ -247,6 +250,8 @@ export function Result({ id }: { id: string }) {
               </div>
             )}
           </div>
+
+          {game.status !== 'running' && game.status !== 'prep' && <RatingCard game={game} />}
 
           {game.status !== 'running' && game.status !== 'prep' && (
             <div className="card">

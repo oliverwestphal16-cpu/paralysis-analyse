@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, deleteGame } from '../data/db';
+import { db, deleteGame, useCriteria } from '../data/db';
+import { fmtScore, summarize } from '../domain/rating';
 import { gameSpan } from '../domain/stats';
 import type { Game } from '../domain/types';
 import { fmtDate, fmtDur } from '../lib/format';
@@ -11,6 +12,7 @@ import { Dialog } from '../ui/Dialog';
 export function History() {
   const games = useLiveQuery(() => db.games.orderBy('createdAt').reverse().toArray(), []) ?? [];
   const [toDelete, setToDelete] = useState<Game>();
+  const criteria = useCriteria();
 
   return (
     <div className="page">
@@ -32,6 +34,10 @@ export function History() {
                   <strong>{g.title || 'Partie'}</strong>
                   {(g.status === 'running' || g.status === 'prep') && <> <span className="badge live">läuft</span></>}
                   {g.status === 'scoring' && <> <span className="badge">Punkte fehlen</span></>}
+                  {(() => {
+                    const o = summarize(g.rating, criteria)?.overall;
+                    return o !== undefined && <> <span className="badge score">★ {fmtScore(o)}</span></>;
+                  })()}
                   <br />
                   <span className="muted" style={{ fontSize: 14 }}>{fmtDate(g.createdAt)} · {fmtDur(span.end - span.start)} · {g.players.map((p) => p.name).join(', ')}</span>
                 </span>

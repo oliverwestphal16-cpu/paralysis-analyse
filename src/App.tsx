@@ -5,8 +5,10 @@ import { Home } from './screens/Home';
 import { Photos } from './screens/Photos';
 import { Play } from './screens/Play';
 import { Players } from './screens/Players';
+import { Rate } from './screens/Rate';
 import { Result } from './screens/Result';
 import { Score } from './screens/Score';
+import { Settings } from './screens/Settings';
 import { Setup } from './screens/Setup';
 
 const THEME_KEY = 'pa.theme';
@@ -22,10 +24,12 @@ const TITLES: Record<string, string> = {
   result: 'Auswertung',
   history: 'Partien',
   players: 'Spieler & Statistiken',
+  rate: 'Partie bewerten',
+  settings: 'Einstellungen',
 };
 
 export function App() {
-  const [section, id] = useRoute();
+  const [section, id, sub] = useRoute();
   const [theme, setTheme] = useState(readTheme);
 
   useEffect(() => {
@@ -45,6 +49,8 @@ export function App() {
     case 'result': page = id ? <Result key={id} id={id} /> : null; break;
     case 'history': page = <History />; break;
     case 'players': page = <Players />; break;
+    case 'rate': page = id ? <Rate key={`${id}/${sub}`} id={id} mode={sub === 'individual' ? 'individual' : 'table'} /> : null; break;
+    case 'settings': page = <Settings />; break;
     default: page = <Home />;
   }
 

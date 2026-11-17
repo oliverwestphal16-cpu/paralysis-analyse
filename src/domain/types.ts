@@ -71,6 +71,33 @@ export interface Game {
   roundAdjust?: RoundAdjust[];
   /** Final scores by player id; undefined = not entered (yet). */
   scores?: Record<string, number>;
+  rating?: GameRating;
+}
+
+/** A weighted rating criterion; the id never changes, renaming only changes `name`. */
+export interface RatingCriterion {
+  id: string;
+  name: string;
+  /** Relative weight; normalised to 100 % over all active criteria. */
+  weight: number;
+  archived?: boolean;
+}
+
+/** One filled-in rating: by one player, or by the whole table (`by` undefined). */
+export interface RatingEntry {
+  by?: string;
+  /** criterion id → 1..10 (half stars); missing = not rated. */
+  values: Record<string, number>;
+  /** 0 = luck, 0.5 = tactics, 1 = strategy; descriptive only. */
+  luck?: number;
+  /** 0 = relaxed, 1 = brain-burner; descriptive only. */
+  brainy?: number;
+}
+
+export interface GameRating {
+  mode: 'table' | 'individual';
+  entries: RatingEntry[];
+  ratedAt: number;
 }
 
 /** Photo of a game, stored separately so game lists stay small. */

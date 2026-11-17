@@ -41,6 +41,7 @@ export function Home() {
         <button className={running.length ? '' : 'primary'} onClick={() => go('setup')}>Neues Spiel</button>
         <button onClick={() => go('history')}>Partien</button>
         <button onClick={() => go('players')}>Spieler & Statistiken</button>
+        <button onClick={() => go('settings')}>Einstellungen</button>
       </div>
 
       <div className="card" style={{ maxWidth: 420, margin: '24px auto' }}>

@@ -219,6 +219,25 @@ table.stats th:first-child, table.stats td:first-child { text-align: left; }
 .awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
 .award { display: flex; gap: 12px; align-items: center; background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
 
+/* Stars & scales */
+.stars { display: inline-flex; gap: 2px; vertical-align: middle; }
+.star { position: relative; display: inline-block; line-height: 1; }
+.star-bg { color: var(--border); }
+.star-fg { position: absolute; left: 0; top: 0; overflow: hidden; color: var(--gold); white-space: nowrap; }
+.star-wrap { position: relative; display: inline-block; }
+.star-hit { position: absolute; top: 0; bottom: 0; width: 50%; min-height: 0; padding: 0; border: 0; background: transparent; border-radius: 0; }
+.star-hit.left { left: 0; }
+.star-hit.right { right: 0; }
+.star-hit:focus-visible { outline: 2px solid var(--accent); }
+.rate-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.scale.unset input[type='range'] { opacity: 0.35; }
+.scale-labels { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.scalebar { min-width: 140px; }
+.scalebar-track { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); margin: 6px 0 2px; }
+.scalebar-dot { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); }
+.score-big { font-size: 44px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.badge.score { background: transparent; border-color: var(--gold); color: var(--gold); }
+
 .list-item {
   display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px;
   background: var(--surface-2); border: 1px solid var(--border); margin-bottom: 8px; width: 100%; text-align: left;
