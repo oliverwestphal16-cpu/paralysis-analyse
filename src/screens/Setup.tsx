@@ -51,7 +51,7 @@ export function Setup() {
       const p = byId[id];
       return { id, name: p.name, avatar: p.avatar, photo: p.photo, color: colorOf(id) };
     });
-    const game = createGame(players, { title, softLimitSec: limit || undefined, now: Date.now() });
+    const game = createGame(players, { title, softLimitSec: limit || undefined, now: Date.now(), prep: true });
     await saveGame(game);
     go(`play/${game.id}`, true);
   };
@@ -81,7 +81,7 @@ export function Setup() {
 
       <div className="card">
         <h2>Zugreihenfolge</h2>
-        <p className="muted" style={{ marginTop: 0 }}>Ziehen zum Umsortieren. Die erste Person beginnt.</p>
+        <p className="muted" style={{ marginTop: 0 }}>Ziehen zum Umsortieren. Wer beginnt, wird nach dem Aufbau festgelegt.</p>
         {chosen.length === 0 && <p className="muted">Noch niemand ausgewählt.</p>}
         <SortableList
           ids={chosen}
@@ -127,7 +127,7 @@ export function Setup() {
       <div className="row">
         <span className="spacer" />
         <button className="primary" style={{ minHeight: 56, fontSize: 18 }} disabled={chosen.length < 2 || duplicate} onClick={start}>
-          Spiel starten
+          Spiel starten – Aufbau beginnt
         </button>
       </div>
 

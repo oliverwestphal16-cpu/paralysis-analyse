@@ -25,6 +25,11 @@ export function useWakeLock(active: boolean): void {
   }, [active]);
 }
 
+/** Short haptic confirmation (turn switch). */
+export function tick(): void {
+  navigator.vibrate?.(40);
+}
+
 let audio: AudioContext | undefined;
 
 /** One short vibration plus a soft beep. */

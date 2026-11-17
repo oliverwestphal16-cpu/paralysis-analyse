@@ -29,7 +29,8 @@ export function Score({ id }: { id: string }) {
 
   const finish = async (scores: Record<string, number> | undefined) => {
     await saveGame(setScores(game, scores));
-    go(`result/${game.id}`, true);
+    // Right after the game: offer photos; when only editing scores later: back to the result.
+    go(game.status === 'scoring' ? `photos/${game.id}` : `result/${game.id}`, true);
   };
 
   return (

@@ -39,7 +39,7 @@ describe('turn records', () => {
     const r = turnRecords(g, s(50));
     expect(r[0].net).toBe(25_000);
     expect(r[1].net).toBe(10_000);
-    expect(pauseSummary(g, s(50))).toEqual({ total: 15_000, count: 1, byCategory: { rules: 15_000, other: 0 } });
+    expect(pauseSummary(g, s(50))).toEqual({ total: 15_000, count: 1, byCategory: { rules: 15_000, food: 0, other: 0 } });
   });
 
   it('counts a running turn and running pause up to now', () => {

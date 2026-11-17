@@ -26,7 +26,22 @@ export interface Turn {
   end?: number;
 }
 
-export type PauseCategory = 'rules' | 'other';
+export type PauseCategory = 'rules' | 'food' | 'other';
+
+export type PrepKind = 'setup' | 'rules';
+
+/** Time before the first turn (setup, rules explanation); belongs to nobody. */
+export interface PrepPhase {
+  kind: PrepKind;
+  start: number;
+  end?: number;
+}
+
+/** Manual round correction: from turn `fromTurn` on, the round number shifts by `delta`. */
+export interface RoundAdjust {
+  fromTurn: number;
+  delta: number;
+}
 
 /** A pause belongs to nobody; its time is removed from the turn it overlaps. */
 export interface Pause {
@@ -35,7 +50,8 @@ export interface Pause {
   category: PauseCategory;
 }
 
-export type GameStatus = 'running' | 'scoring' | 'finished';
+/** prep = setup/rules before the first turn; photos are stored in their own table. */
+export type GameStatus = 'prep' | 'running' | 'scoring' | 'finished';
 
 export interface Game {
   id: string;
@@ -50,6 +66,19 @@ export interface Game {
   softLimitSec?: number;
   turns: Turn[];
   pauses: Pause[];
+  /** Missing on games recorded before the preparation phase existed. */
+  prep?: PrepPhase[];
+  roundAdjust?: RoundAdjust[];
   /** Final scores by player id; undefined = not entered (yet). */
   scores?: Record<string, number>;
+}
+
+/** Photo of a game, stored separately so game lists stay small. */
+export interface GamePhoto {
+  id: string;
+  gameId: string;
+  createdAt: number;
+  blob: Blob;
+  /** Taken from inside the app (not yet in the device gallery). */
+  fromCamera: boolean;
 }

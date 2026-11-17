@@ -1,15 +1,19 @@
 import Dexie, { type Table } from 'dexie';
-import type { Game, Profile } from '../domain/types';
+import type { Game, GamePhoto, Profile } from '../domain/types';
 
 class AppDb extends Dexie {
   profiles!: Table<Profile, string>;
   games!: Table<Game, string>;
+  photos!: Table<GamePhoto, string>;
 
   constructor() {
     super('paralysis-analyse');
     this.version(1).stores({
       profiles: 'id, name, createdAt',
       games: 'id, createdAt, status, title',
+    });
+    this.version(2).stores({
+      photos: 'id, gameId, createdAt',
     });
   }
 }
@@ -20,6 +24,14 @@ export async function saveGame(game: Game): Promise<void> {
   await db.games.put(game);
 }
 
+/** Deletes a game together with its photos. */
+export async function deleteGame(id: string): Promise<void> {
+  await db.transaction('rw', db.games, db.photos, async () => {
+    await db.photos.where('gameId').equals(id).delete();
+    await db.games.delete(id);
+  });
+}
+
 export interface ExportFile {
   app: 'paralysis-analyse';
   version: 1;
@@ -28,6 +40,7 @@ export interface ExportFile {
   games: Game[];
 }
 
+/** Photos are deliberately not exported (size); the originals live in the device gallery. */
 export async function exportAll(): Promise<ExportFile> {
   return {
     app: 'paralysis-analyse',

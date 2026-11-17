@@ -7,6 +7,7 @@ import { fmtClock, fmtDate, fmtNum } from '../lib/format';
 import { Avatar } from '../ui/avatars';
 import { Dialog } from '../ui/Dialog';
 import { EChart, chartTheme } from '../ui/EChart';
+import { BoardGames, Leaderboard } from './Leaderboard';
 import { ProfileEditor } from './ProfileEditor';
 
 /** Profiles and their statistics across all games. */
@@ -26,6 +27,16 @@ export function Players() {
 
   return (
     <div className="page">
+      <div className="row" style={{ marginBottom: 12 }}>
+        <label htmlFor="flt" className="muted">Spiel:</label>
+        <select id="flt" value={title} onChange={(e) => setTitle(e.target.value)} style={{ maxWidth: 320 }}>
+          <option value="">Alle Spiele</option>
+          {titles.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+      </div>
+
+      <Leaderboard games={games} profiles={profiles} title={title || undefined} />
+
       <div className="card">
         <div className="row">
           <h2 className="spacer" style={{ margin: 0 }}>Spieler</h2>
@@ -49,13 +60,7 @@ export function Players() {
             <h2 className="spacer" style={{ margin: 0 }}>{current.name}</h2>
             <button onClick={() => setEditing(current)}>Bearbeiten</button>
           </div>
-          <div className="row" style={{ margin: '12px 0' }}>
-            <label htmlFor="flt" className="muted">Spiel:</label>
-            <select id="flt" value={title} onChange={(e) => setTitle(e.target.value)} style={{ maxWidth: 320 }}>
-              <option value="">Alle Spiele</option>
-              {titles.map((x) => <option key={x} value={x}>{x}</option>)}
-            </select>
-          </div>
+          {title && <p className="muted">Nur Partien von „{title}“.</p>}
           {cs.games === 0 ? (
             <p className="muted">Noch keine abgeschlossene Partie{title ? ` in „${title}“` : ''}.</p>
           ) : (
@@ -65,6 +70,7 @@ export function Players() {
                   <tr><td>Partien</td><td>{cs.games}</td></tr>
                   <tr><td>Ø Zugdauer</td><td>{fmtClock(cs.meanTurn)}</td></tr>
                   <tr><td>Tempo im Vergleich zum Tisch</td><td>{fmtNum(cs.meanPaceRatio * 100, 0)} %</td></tr>
+                  <tr><td>Ø Effizienz</td><td>{cs.meanEfficiency === undefined ? '–' : fmtNum(cs.meanEfficiency)}</td></tr>
                   <tr><td>Am schnellsten gespielt</td><td>{cs.fastestCount}×</td></tr>
                   <tr><td>Nach Punkten gewonnen</td><td>{cs.winsOnPoints}×</td></tr>
                 </tbody>
@@ -110,6 +116,8 @@ export function Players() {
           )}
         </div>
       )}
+
+      <BoardGames games={games} />
 
       {editing && (
         <ProfileEditor

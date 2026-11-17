@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { db, saveGame } from '../data/db';
 import {
-  activePause, currentTurn, endPause, finishGame, nextInOrder, rebook, setOrder, startPause, switchTo, undoSwitch,
+  activePause, adjustRound, currentPrep, currentTurn, discardSetup, endPause, finishGame, nextInOrder, rebook,
+  setOrder, setPauseCategory, startPause, startPlay, startRules, switchTo, undoSwitch,
 } from '../domain/game';
-import { playerStats, turnRecords } from '../domain/stats';
+import { PAUSE_LABELS, pauseMsIn, playerStats, roundNumbers, turnRecords } from '../domain/stats';
 import type { Game, PauseCategory } from '../domain/types';
-import { signal, useWakeLock } from '../lib/device';
+import { signal, tick, useWakeLock } from '../lib/device';
 import { fmtClock } from '../lib/format';
 import { go } from '../lib/router';
 import { Avatar } from '../ui/avatars';
@@ -13,6 +14,8 @@ import { Dialog } from '../ui/Dialog';
 import { SortableList } from '../ui/SortableList';
 
 const SHOW_TOTALS_KEY = 'pa.showTotals';
+/** Taps on the turn area right after a switch are ignored (double-tap protection). */
+const GUARD_MS = 1000;
 
 function readShowTotals(): boolean {
   try { return localStorage.getItem(SHOW_TOTALS_KEY) === '1'; } catch { return false; }
@@ -22,8 +25,9 @@ export function Play({ id }: { id: string }) {
   const [game, setGame] = useState<Game | null>();
   const [now, setNow] = useState(Date.now());
   const [showTotals, setShowTotals] = useState(readShowTotals);
-  const [dialog, setDialog] = useState<'pause' | 'rebook' | 'order' | 'finish'>();
+  const [dialog, setDialog] = useState<'rebook' | 'order' | 'finish'>();
   const alerted = useRef<number>();
+  const lastSwitch = useRef(0);
 
   useEffect(() => {
     db.games.get(id).then((g) => setGame(g ?? null));
@@ -35,13 +39,14 @@ export function Play({ id }: { id: string }) {
   }, []);
 
   useEffect(() => {
-    if (game && game.status !== 'running') go(game.status === 'scoring' ? `score/${game.id}` : `result/${game.id}`, true);
+    if (game && (game.status === 'scoring' || game.status === 'finished')) {
+      go(game.status === 'scoring' ? `score/${game.id}` : `result/${game.id}`, true);
+    }
   }, [game]);
 
-  useWakeLock(!!game && game.status === 'running');
+  useWakeLock(!!game && (game.status === 'running' || game.status === 'prep'));
 
   const cur = game ? currentTurn(game) : undefined;
-  const pause = game ? activePause(game) : undefined;
   const records = game ? turnRecords(game, now) : [];
   const curNet = cur ? records[records.length - 1].net : 0;
   const over = !!game?.softLimitSec && curNet > game.softLimitSec * 1000;
@@ -56,7 +61,6 @@ export function Play({ id }: { id: string }) {
 
   if (game === undefined) return <div className="page">Lade …</div>;
   if (game === null) return <div className="page">Spiel nicht gefunden. <a href="#/">Zur Startseite</a></div>;
-  if (!cur) return null;
 
   const update = (g: Game) => {
     if (g === game) return;
@@ -64,18 +68,66 @@ export function Play({ id }: { id: string }) {
     saveGame(g);
   };
   const t = () => Date.now();
+  const pause = activePause(game);
+  const pauseOverlay = pause && (
+    <div className="pause-overlay">
+      <div className="big">Pause</div>
+      <div>zählt für niemanden</div>
+      <div className="clock">{fmtClock(now - pause.start)}</div>
+      <div className="seg" role="radiogroup" aria-label="Art der Pause">
+        {(Object.keys(PAUSE_LABELS) as PauseCategory[]).map((c) => (
+          <button
+            key={c}
+            role="radio"
+            aria-checked={pause.category === c}
+            className={pause.category === c ? 'active' : ''}
+            style={{ minHeight: 48, padding: '8px 18px', color: pause.category === c ? undefined : '#f3ece2' }}
+            onClick={() => update(setPauseCategory(game, c))}
+          >
+            {PAUSE_LABELS[c]}
+          </button>
+        ))}
+      </div>
+      <button className="primary" style={{ minHeight: 64, fontSize: 22, padding: '0 40px' }} onClick={() => update(endPause(game, t()))}>
+        Weiter
+      </button>
+    </div>
+  );
+
+  if (game.status === 'prep') {
+    return <Prep game={game} now={now} update={update} pauseOverlay={pauseOverlay} />;
+  }
+  if (!cur) return null;
+
   const player = (pid: string) => game.players.find((p) => p.id === pid)!;
   const active = player(cur.playerId);
   const next = player(nextInOrder(game, cur.playerId));
   const totals = Object.fromEntries(playerStats(game, now, 0).map((s) => [s.id, s.raw]));
   const elapsed = now - (game.turns[0]?.start ?? game.createdAt);
+  const rounds = roundNumbers(game);
+  const round = rounds[rounds.length - 1] ?? 1;
+
+  const doSwitch = (pid?: string) => {
+    const at = t();
+    if (at - lastSwitch.current < GUARD_MS) return;
+    const g = switchTo(game, at, pid);
+    if (g === game) return;
+    lastSwitch.current = at;
+    tick();
+    update(g);
+  };
 
   return (
     <div className="play" style={{ ['--player' as string]: active.color }}>
       <div className="play-top">
         <a href="#/" className="ghost" aria-label="Zur Startseite" style={{ color: 'inherit', textDecoration: 'none', padding: '0 6px' }}>⌂</a>
         <span className="title">{game.title || 'Partie'} · {fmtClock(elapsed)}</span>
-        <button onClick={() => setDialog('pause')} title="Pause" aria-label="Pause">⏸<span className="lbl"> Pause</span></button>
+        <span className="round">
+          <button className="ghost icon" aria-label="Runde zurück" title="Rundenzahl korrigieren" onClick={() => update(adjustRound(game, -1))} disabled={round <= 1}>−</button>
+          <span>Runde {round}</span>
+          <button className="ghost icon" aria-label="Runde vor" title="Rundenzahl korrigieren" onClick={() => update(adjustRound(game, 1))}>+</button>
+        </span>
+        <button onClick={() => update(startPause(game, t()))} title="Pause" aria-label="Pause">⏸<span className="lbl"> Pause</span></button>
         <button onClick={() => update(undoSwitch(game))} disabled={game.turns.length < 2} title="Letzten Wechsel zurücknehmen" aria-label="Rückgängig">↶<span className="lbl"> Rückgängig</span></button>
         <button onClick={() => setDialog('rebook')} title="Zeit umbuchen" aria-label="Umbuchen">⇄<span className="lbl"> Umbuchen</span></button>
         <button onClick={() => setDialog('order')} title="Reihenfolge ändern" aria-label="Reihenfolge">⇅<span className="lbl"> Reihenfolge</span></button>
@@ -95,7 +147,7 @@ export function Play({ id }: { id: string }) {
       </div>
 
       <div className="play-main">
-        <button className="turn-button" onClick={() => update(switchTo(game, t()))} aria-label={`Zug beenden, weiter mit ${next.name}`}>
+        <button className="turn-button" onClick={() => doSwitch()} aria-label={`Zug beenden, weiter mit ${next.name}`}>
           <Avatar avatar={active.avatar} color={active.color} photo={active.photo} size={120} />
           <span className="who">{active.name}</span>
           <span className={`clock ${over ? 'over' : ''}`}>{fmtClock(curNet)}</span>
@@ -111,7 +163,7 @@ export function Play({ id }: { id: string }) {
                 key={pid}
                 className={isActive ? 'active' : ''}
                 style={{ borderColor: isActive ? undefined : p.color }}
-                onClick={() => !isActive && update(switchTo(game, t(), pid))}
+                onClick={() => !isActive && doSwitch(pid)}
                 aria-label={isActive ? `${p.name} ist am Zug` : `${p.name} ist als Nächstes dran`}
               >
                 <Avatar avatar={p.avatar} color={p.color} photo={p.photo} size={36} />
@@ -125,29 +177,7 @@ export function Play({ id }: { id: string }) {
         </div>
       </div>
 
-      {pause && (
-        <div className="pause-overlay">
-          <div className="big">Pause</div>
-          <div>{pause.category === 'rules' ? 'Regelklärung' : 'Sonstiges'} · zählt für niemanden</div>
-          <div className="clock">{fmtClock(now - pause.start)}</div>
-          <button className="primary" style={{ minHeight: 64, fontSize: 22, padding: '0 40px' }} onClick={() => update(endPause(game, t()))}>
-            Weiter
-          </button>
-        </div>
-      )}
-
-      {dialog === 'pause' && (
-        <Dialog title="Pause – warum?" onClose={() => setDialog(undefined)}>
-          <p className="muted">Die Uhr von {active.name} hält an. Die Pausenzeit wird keinem Spieler angerechnet.</p>
-          <div className="row">
-            {([['rules', 'Regelklärung'], ['other', 'Sonstiges']] as [PauseCategory, string][]).map(([c, label]) => (
-              <button key={c} className="primary" style={{ flex: 1, minHeight: 64 }} onClick={() => { update(startPause(game, t(), c)); setDialog(undefined); }}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </Dialog>
-      )}
+      {pauseOverlay}
 
       {dialog === 'rebook' && (
         <RebookDialog
@@ -182,6 +212,109 @@ export function Play({ id }: { id: string }) {
           </div>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+/** Setup and rules explanation before the first turn, ending with the choice of the start player. */
+function Prep({
+  game, now, update, pauseOverlay,
+}: {
+  game: Game;
+  now: number;
+  update: (g: Game) => void;
+  pauseOverlay: ReactNode;
+}) {
+  const phase = currentPrep(game);
+  const [choosing, setChoosing] = useState(!phase);
+  const [starter, setStarter] = useState(game.order[0]);
+  const [rolling, setRolling] = useState(false);
+  const t = () => Date.now();
+  const phaseNet = phase ? Math.max(0, now - phase.start - pauseMsIn(game, phase.start, now, now)) : 0;
+  const label = phase?.kind === 'rules' ? 'Regelerklärung' : 'Aufbau';
+
+  const roll = () => {
+    if (rolling) return;
+    setRolling(true);
+    const ids = game.order;
+    let n = 0;
+    const steps = 16 + Math.floor(Math.random() * ids.length);
+    const iv = setInterval(() => {
+      n++;
+      setStarter(ids[n % ids.length]);
+      if (n >= steps) {
+        clearInterval(iv);
+        setStarter(ids[Math.floor(Math.random() * ids.length)]);
+        setRolling(false);
+        signal();
+      }
+    }, 90);
+  };
+
+  const starterP = game.players.find((p) => p.id === starter)!;
+
+  return (
+    <div className="play" style={{ ['--player' as string]: choosing ? starterP.color : 'var(--accent)' }}>
+      <div className="play-top">
+        <a href="#/" className="ghost" aria-label="Zur Startseite" style={{ color: 'inherit', textDecoration: 'none', padding: '0 6px' }}>⌂</a>
+        <span className="title">{game.title || 'Partie'} · Vorbereitung</span>
+        {phase && <button onClick={() => update(startPause(game, t()))} aria-label="Pause">⏸<span className="lbl"> Pause</span></button>}
+      </div>
+
+      <div className="prep">
+        {phase && (
+          <div className="prep-clock">
+            <div className="who">{label}</div>
+            <div className="clock">{fmtClock(phaseNet)}</div>
+          </div>
+        )}
+
+        {!choosing ? (
+          <div className="prep-actions">
+            {phase?.kind === 'setup' && (
+              <button className="big" onClick={() => update(startRules(game, t()))}>Aufbau fertig → Regelerklärung</button>
+            )}
+            <button className="big primary" onClick={() => setChoosing(true)}>
+              {phase?.kind === 'setup' ? 'Aufbau fertig → Losspielen' : 'Regeln erklärt → Losspielen'}
+            </button>
+            {phase?.kind === 'setup' && game.prep?.length === 1 && (
+              <button className="ghost" onClick={() => { update(discardSetup(game)); setChoosing(true); }}>
+                Schon aufgebaut – Aufbau nicht messen
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="prep-actions">
+            <h2 style={{ margin: 0 }}>Wer beginnt?</h2>
+            <div className="starter-grid">
+              {game.order.map((pid) => {
+                const p = game.players.find((x) => x.id === pid)!;
+                return (
+                  <button
+                    key={pid}
+                    className={`profile-tile ${pid === starter ? 'selected' : ''}`}
+                    style={{ borderColor: p.color }}
+                    disabled={rolling}
+                    onClick={() => setStarter(pid)}
+                  >
+                    <Avatar avatar={p.avatar} color={p.color} photo={p.photo} size={56} />
+                    <span className="name">{p.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="row" style={{ justifyContent: 'center' }}>
+              <button onClick={roll} disabled={rolling}>🎲 Auslosen</button>
+              {phase && <button className="ghost" onClick={() => setChoosing(false)} disabled={rolling}>Zurück</button>}
+            </div>
+            <button className="big primary" disabled={rolling} onClick={() => { tick(); update(startPlay(game, t(), starter)); }}>
+              Los geht's – {starterP.name} beginnt
+            </button>
+          </div>
+        )}
+      </div>
+
+      {pauseOverlay}
     </div>
   );
 }

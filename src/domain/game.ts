@@ -6,28 +6,37 @@ export function newId(): string {
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
+/**
+ * Creates a game. With `prep` the clock starts with the setup phase and the first turn
+ * begins via `startPlay`; without it the first player in the order starts right away.
+ */
 export function createGame(
   players: GamePlayer[],
-  opts: { title?: string; softLimitSec?: number; now: number; id?: string },
+  opts: { title?: string; softLimitSec?: number; now: number; id?: string; prep?: boolean },
 ): Game {
   if (players.length < 2) throw new Error('Mindestens zwei Spieler');
-  return {
+  const base = {
     id: opts.id ?? newId(),
     title: opts.title?.trim() || undefined,
     createdAt: opts.now,
-    status: 'running',
     players,
     order: players.map((p) => p.id),
     softLimitSec: opts.softLimitSec,
-    // The first player in the order starts right away.
-    turns: [{ playerId: players[0].id, start: opts.now }],
     pauses: [],
   };
+  return opts.prep
+    ? { ...base, status: 'prep', turns: [], prep: [{ kind: 'setup', start: opts.now }] }
+    : { ...base, status: 'running', turns: [{ playerId: players[0].id, start: opts.now }] };
 }
 
 export function currentTurn(game: Game): Turn | undefined {
   const last = game.turns[game.turns.length - 1];
   return last && last.end === undefined ? last : undefined;
+}
+
+export function currentPrep(game: Game) {
+  const last = game.prep?.[game.prep.length - 1];
+  return game.status === 'prep' && last && last.end === undefined ? last : undefined;
 }
 
 export function activePause(game: Game) {
@@ -37,6 +46,30 @@ export function activePause(game: Game) {
 
 export function isPaused(game: Game): boolean {
   return activePause(game) !== undefined;
+}
+
+/** Ends the setup phase and starts the rules explanation. */
+export function startRules(game: Game, now: number): Game {
+  const cur = currentPrep(game);
+  if (!cur || cur.kind !== 'setup' || isPaused(game)) return game;
+  return { ...game, prep: [...game.prep!.slice(0, -1), { ...cur, end: now }, { kind: 'rules', start: now }] };
+}
+
+/** Drops the running setup measurement (game was already set up). */
+export function discardSetup(game: Game): Game {
+  const cur = currentPrep(game);
+  if (!cur || cur.kind !== 'setup' || game.prep!.length !== 1) return game;
+  return { ...game, prep: [], pauses: [] };
+}
+
+/** Ends the preparation; `startPlayerId` begins and the order rotates to start with them. */
+export function startPlay(game: Game, now: number, startPlayerId: string): Game {
+  if (game.status !== 'prep' || isPaused(game)) return game;
+  const cur = currentPrep(game);
+  const prep = cur ? [...game.prep!.slice(0, -1), { ...cur, end: now }] : game.prep;
+  const i = game.order.indexOf(startPlayerId);
+  const order = i < 0 ? game.order : [...game.order.slice(i), ...game.order.slice(0, i)];
+  return { ...game, status: 'running', prep, order, turns: [{ playerId: order[0], start: now }] };
 }
 
 /** Player who follows `playerId` in the planned order. */
@@ -62,7 +95,9 @@ export function undoSwitch(game: Game): Game {
   const turns = game.turns.slice(0, -2);
   const prev = game.turns[game.turns.length - 2];
   turns.push({ playerId: prev.playerId, start: prev.start });
-  return { ...game, turns };
+  // Round corrections made on the removed turn are dropped with it.
+  const roundAdjust = game.roundAdjust?.filter((a) => a.fromTurn < turns.length);
+  return { ...game, turns, roundAdjust };
 }
 
 /**
@@ -79,15 +114,29 @@ export function rebook(game: Game, now: number, seconds: number, playerId: strin
   return { ...game, turns };
 }
 
-export function startPause(game: Game, now: number, category: PauseCategory): Game {
-  if (isPaused(game) || !currentTurn(game)) return game;
+/** Stops the clock immediately; the kind of pause can be changed while it runs. */
+export function startPause(game: Game, now: number, category: PauseCategory = 'other'): Game {
+  if (isPaused(game)) return game;
+  if (!currentTurn(game) && !currentPrep(game)) return game;
   return { ...game, pauses: [...game.pauses, { start: now, category }] };
+}
+
+export function setPauseCategory(game: Game, category: PauseCategory): Game {
+  const p = activePause(game);
+  if (!p || p.category === category) return game;
+  return { ...game, pauses: [...game.pauses.slice(0, -1), { ...p, category }] };
 }
 
 export function endPause(game: Game, now: number): Game {
   const p = activePause(game);
   if (!p) return game;
   return { ...game, pauses: [...game.pauses.slice(0, -1), { ...p, end: now }] };
+}
+
+/** Manual round correction (+1 / -1) from the running turn on. */
+export function adjustRound(game: Game, delta: number): Game {
+  if (!currentTurn(game)) return game;
+  return { ...game, roundAdjust: [...(game.roundAdjust ?? []), { fromTurn: game.turns.length - 1, delta }] };
 }
 
 export function setOrder(game: Game, order: string[]): Game {

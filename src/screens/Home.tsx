@@ -5,7 +5,7 @@ import { go } from '../lib/router';
 import { Meeple } from '../ui/avatars';
 
 export function Home() {
-  const running = useLiveQuery(() => db.games.where('status').equals('running').reverse().sortBy('createdAt'), []) ?? [];
+  const running = useLiveQuery(() => db.games.where('status').anyOf('prep', 'running').reverse().sortBy('createdAt'), []) ?? [];
   const [msg, setMsg] = useState<string>();
   const file = useRef<HTMLInputElement>(null);
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRoute } from './lib/router';
 import { History } from './screens/History';
 import { Home } from './screens/Home';
+import { Photos } from './screens/Photos';
 import { Play } from './screens/Play';
 import { Players } from './screens/Players';
 import { Result } from './screens/Result';
@@ -17,6 +18,7 @@ function readTheme(): 'dark' | 'light' {
 const TITLES: Record<string, string> = {
   setup: 'Neues Spiel',
   score: 'Punkte',
+  photos: 'Fotos',
   result: 'Auswertung',
   history: 'Partien',
   players: 'Spieler & Statistiken',
@@ -39,6 +41,7 @@ export function App() {
   switch (section) {
     case 'setup': page = <Setup />; break;
     case 'score': page = id ? <Score key={id} id={id} /> : null; break;
+    case 'photos': page = id ? <Photos key={id} id={id} /> : null; break;
     case 'result': page = id ? <Result key={id} id={id} /> : null; break;
     case 'history': page = <History />; break;
     case 'players': page = <Players />; break;

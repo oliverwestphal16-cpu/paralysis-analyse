@@ -7,12 +7,15 @@ Die App ist eine offline-fähige Web-App (PWA) für **ein Gerät in der Tischmit
 ## Funktionen
 
 - **Spieler**: Profile mit Name, Meeple-Avatar (eigene Zeichnungen) oder Foto und Farbe; 2–8 Spieler pro Partie
+- **Vorbereitung**: Nach dem Start laufen „Aufbau“ und optional „Regelerklärung“ mit eigener Uhr; danach wird der Startspieler gewählt oder ausgelost
 - **Zugreihenfolge** per Drag & Drop, im Spiel jederzeit änderbar; jeder Spieler lässt sich direkt als Nächster antippen
-- **Während des Spiels**: ein Tipp beendet den Zug; Pause (Regelklärung / Sonstiges), Rückgängig, Zeit umbuchen („eigentlich ist Anna schon seit 1:40 dran“), optionales weiches Zeitlimit, Gesamtzeiten standardmäßig verborgen, Bildschirm bleibt an
-- **Auswertung**: Treppchen (kürzeste Gesamtzeit = Platz 1), Zeitleiste / Verlauf / Balken je Zug, Punkte pro Minute, Effizienz-Index (Punkteanteil ÷ Zeitanteil), Streudiagramm
+- **Während des Spiels**: ein Tipp beendet den Zug (mit Doppeltipp-Schutz und kurzer Vibration); Pause hält sofort an, Art (Regelklärung / Essen / Sonstiges) wählbar; Rundenzähler mit ±1-Korrektur; Rückgängig, Zeit umbuchen („eigentlich ist Anna schon seit 1:40 dran“), optionales weiches Zeitlimit, Gesamtzeiten standardmäßig verborgen, Bildschirm bleibt an
+- **Nach dem Spiel**: Punkte, dann optional Fotos (aufnehmen oder aus der Galerie; direkt aufgenommene lassen sich in die Galerie sichern)
+- **Auswertung**: Treppchen (kürzeste Gesamtzeit = Platz 1), Titel des Abends, Zeitleiste / Verlauf / Balken je Zug mit Phasenbändern und Rundenlinien, Punkte pro Minute, Effizienz-Index (Punkteanteil ÷ Zeitanteil), Streudiagramm, Teilen-Karte als Bild
+- **Phasenfilter** Insgesamt / Early (erste 25 % der Züge) / Mid (50 %) / Late (letzte 25 %); Aufbau & Regeln ein- und ausblendbar
 - **Vorausdenk-Faktor** (0–1, nachträglich einstellbar): Jedem Spieler wird zusätzlich dieser Anteil der Dauer des direkt vorangehenden Zugs eines anderen Spielers angerechnet
-- **Weitere Statistiken**: Spinnendiagramm (Tempo, Durchschnittszug, Konstanz, kein Grübel-Ausreißer, Punkte, Effizienz), Kennzahlentabelle, Boxplot, Anteil an der Spielzeit, das „Rennen“, die 5 längsten Züge, Pausen
-- **Partieübergreifend**: Historie, Statistik je Spieler mit Filter nach Spiel, JSON-Export/-Import als Datensicherung
+- **Weitere Statistiken**: Spinnendiagramm (Tempo, Durchschnittszug, Konstanz, kein Grübel-Ausreißer, Punkte, Effizienz), Kennzahlentabelle, Ø Zugdauer je Phase, Phasentabelle, Boxplot, Anteil an der Spielzeit, das „Rennen“, die 5 längsten Züge, Pausen
+- **Partieübergreifend**: Historie, ewige Rangliste (Tempo-Index), Statistik je Spieler, Ø Aufbau-/Regel-/Spieldauer je Spiel, Filter nach Spiel, JSON-Export/-Import als Datensicherung (ohne Fotos)
 
 ## Benutzung
 

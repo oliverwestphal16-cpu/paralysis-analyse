@@ -2,13 +2,13 @@ import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, BoxplotChart, CustomChart, LineChart, PieChart, RadarChart, ScatterChart } from 'echarts/charts';
 import {
-  DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, RadarComponent, TooltipComponent,
+  DataZoomComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, RadarComponent, TooltipComponent,
 } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
 
 echarts.use([
   BarChart, BoxplotChart, CustomChart, LineChart, PieChart, RadarChart, ScatterChart,
-  DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, RadarComponent, TooltipComponent,
+  DataZoomComponent, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, RadarComponent, TooltipComponent,
   SVGRenderer,
 ]);
 

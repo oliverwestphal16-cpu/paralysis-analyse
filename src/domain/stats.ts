@@ -91,8 +91,30 @@ export interface PlayerStats {
   cv: number;
 }
 
-export function playerStats(game: Game, now: number, factor: number): PlayerStats[] {
-  const recs = turnRecords(game, now);
+export type Phase = 'early' | 'mid' | 'late';
+export const PHASES: { key: Phase; label: string }[] = [
+  { key: 'early', label: 'Early Game' },
+  { key: 'mid', label: 'Mid Game' },
+  { key: 'late', label: 'Late Game' },
+];
+
+/** Turn index boundaries: early = [0, earlyEnd), mid = [earlyEnd, lateStart), late = [lateStart, n). */
+export function phaseBounds(turnCount: number): { earlyEnd: number; lateStart: number } {
+  return { earlyEnd: Math.round(turnCount * 0.25), lateStart: Math.round(turnCount * 0.75) };
+}
+
+export function phaseOf(index: number, turnCount: number): Phase {
+  const { earlyEnd, lateStart } = phaseBounds(turnCount);
+  return index < earlyEnd ? 'early' : index < lateStart ? 'mid' : 'late';
+}
+
+/**
+ * Per-player statistics. With `phase` only turns of that phase count; the foresight of a
+ * turn is still the turn actually played before it, even if that lies in the previous phase.
+ */
+export function playerStats(game: Game, now: number, factor: number, phase?: Phase): PlayerStats[] {
+  const all = turnRecords(game, now);
+  const recs = phase ? all.filter((r) => phaseOf(r.index, all.length) === phase) : all;
   return game.players.map((p) => {
     const mine = recs.filter((r) => r.playerId === p.id);
     const durations = mine.map((r) => r.net);
@@ -180,7 +202,8 @@ export function normalize(values: Record<string, number>, higherIsBetter: boolea
   return out;
 }
 
-export function radarAxes(game: Game, stats: PlayerStats[], eff: Efficiency[]): RadarAxis[] {
+/** Radar axes; points and efficiency only when `withPoints` (i.e. for the whole game). */
+export function radarAxes(game: Game, stats: PlayerStats[], eff: Efficiency[], withPoints = true): RadarAxis[] {
   const by = (f: (s: PlayerStats) => number) => Object.fromEntries(stats.map((s) => [s.id, f(s)]));
   const axes: RadarAxis[] = [];
   const add = (key: string, label: string, raw: Record<string, number>, higher: boolean, format: RadarAxis['format']) =>
@@ -190,7 +213,7 @@ export function radarAxes(game: Game, stats: PlayerStats[], eff: Efficiency[]): 
   add('avg', 'Durchschnittszug', by((s) => s.adjustedMean), false, 'time');
   add('steady', 'Konstanz', by((s) => s.cv), false, 'percent');
   add('outlier', 'Kein Grübel-Ausreißer', by((s) => s.max), false, 'time');
-  if (game.scores) {
+  if (game.scores && withPoints) {
     add('points', 'Punkte', Object.fromEntries(stats.map((s) => [s.id, game.scores![s.id] ?? 0])), true, 'number');
     const idx = eff.filter((e) => e.relativeIndex !== null);
     if (idx.length === stats.length) {
@@ -206,19 +229,84 @@ export interface PauseSummary {
   byCategory: Record<PauseCategory, number>;
 }
 
-export function pauseSummary(game: Game, now: number): PauseSummary {
-  const byCategory: Record<PauseCategory, number> = { rules: 0, other: 0 };
+/** Pauses, optionally clipped to a time window (e.g. one phase). */
+export function pauseSummary(game: Game, now: number, window?: { start: number; end: number }): PauseSummary {
+  const byCategory: Record<PauseCategory, number> = { rules: 0, food: 0, other: 0 };
   let total = 0;
+  let count = 0;
   for (const p of game.pauses) {
-    const d = (p.end ?? now) - p.start;
-    byCategory[p.category] += d;
+    const end = p.end ?? now;
+    const d = window ? overlap(window.start, window.end, p.start, end) : end - p.start;
+    if (d <= 0) continue;
+    byCategory[p.category] = (byCategory[p.category] ?? 0) + d;
     total += d;
+    count++;
   }
-  return { total, count: game.pauses.length, byCategory };
+  return { total, count, byCategory };
 }
 
-export function topTurns(game: Game, now: number, n: number): TurnRecord[] {
-  return [...turnRecords(game, now)].sort((a, b) => b.net - a.net).slice(0, n);
+export const PAUSE_LABELS: Record<PauseCategory, string> = {
+  rules: 'Regelklärung',
+  food: 'Essen',
+  other: 'Sonstiges',
+};
+
+/** Net durations (without pauses) of the preparation phases. */
+export function prepTimes(game: Game, now: number): { setup?: number; rules?: number; start?: number } {
+  const out: { setup?: number; rules?: number; start?: number } = {};
+  for (const ph of game.prep ?? []) {
+    const end = ph.end ?? now;
+    out[ph.kind] = (out[ph.kind] ?? 0) + Math.max(0, end - ph.start - pauseMsIn(game, ph.start, end, now));
+    out.start = Math.min(out.start ?? ph.start, ph.start);
+  }
+  return out;
+}
+
+/**
+ * Round number per turn. A new round starts when every player has moved since the
+ * round began; manual corrections shift the count from their turn on.
+ */
+export function roundNumbers(game: Game): number[] {
+  const n = game.players.length;
+  const out: number[] = [];
+  let round = 1;
+  let seen = new Set<string>();
+  game.turns.forEach((t, i) => {
+    if (seen.size >= n) {
+      round++;
+      seen = new Set();
+    }
+    seen.add(t.playerId);
+    const adj = (game.roundAdjust ?? []).filter((a) => a.fromTurn <= i).reduce((s, a) => s + a.delta, 0);
+    out.push(Math.max(1, round + adj));
+  });
+  return out;
+}
+
+/** Net duration per round; a last round in which not everybody moved yet is left out. */
+export function roundDurations(game: Game, now: number): number[] {
+  const rounds = roundNumbers(game);
+  const recs = turnRecords(game, now);
+  const sums = new Map<number, { ms: number; players: Set<string> }>();
+  recs.forEach((r, i) => {
+    const e = sums.get(rounds[i]) ?? { ms: 0, players: new Set<string>() };
+    e.ms += r.net;
+    e.players.add(r.playerId);
+    sums.set(rounds[i], e);
+  });
+  const keys = [...sums.keys()].sort((a, b) => a - b);
+  const last = keys[keys.length - 1];
+  return keys
+    .filter((k) => k !== last || sums.get(k)!.players.size >= game.players.length)
+    .map((k) => sums.get(k)!.ms);
+}
+
+export function topTurns(game: Game, now: number, n: number, phase?: Phase): TurnRecord[] {
+  const all = turnRecords(game, now);
+  return all
+    .filter((r) => !phase || phaseOf(r.index, all.length) === phase)
+    .sort((a, b) => b.net - a.net)
+    .slice(0, n);
 }
 
 /** Cumulative raw time per player after each turn of the game (x = global turn number). */
@@ -232,8 +320,15 @@ export function raceSeries(game: Game, now: number): Record<string, number[]> {
   return out;
 }
 
-/** Wall-clock span of the game. */
+/** Wall-clock span of the play (from the first turn). */
 export function gameSpan(game: Game, now: number): { start: number; end: number } {
   const start = game.turns[0]?.start ?? game.createdAt;
   return { start, end: game.endedAt ?? now };
+}
+
+/** Wall-clock window of one phase (start of its first turn to end of its last). */
+export function phaseWindow(game: Game, now: number, phase: Phase): { start: number; end: number } | undefined {
+  const recs = turnRecords(game, now).filter((r, _i, all) => phaseOf(r.index, all.length) === phase);
+  if (!recs.length) return undefined;
+  return { start: recs[0].start, end: recs[recs.length - 1].end };
 }
